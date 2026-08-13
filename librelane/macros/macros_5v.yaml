@@ -94,16 +94,29 @@ MACROS:
       "*_ss_125C_4v50":
         - pdk_dir::libs.ref/gf180mcu_fd_ip_sram/lib/gf180mcu_fd_ip_sram__sram512x8m8wm1__ss_125C_4v50.lib
     instances:
-      # Make sure to specify the SRAMs in pdn_cfg.tcl
-      i_chip_core.sram_0:
-        location: [490, 500]
+      # 4x 512x8 macros compose alpha_sram_1024x16 inside u_core.u_alpha
+      # (600-entry alpha table: 2 banks deep x 2 byte lanes). Also referenced in
+      # pdn/pdn_5v_sram.tcl. Stacked vertically in the tall 0p5x1 core
+      # (X 442..1494, Y 442..4680). NOTE: these coordinates are a STARTING POINT —
+      # verify against the sram512x8 LEF footprint + macro-placement halo/DRC on
+      # Orca and adjust (rows must clear the pad ring, logo, and each other).
+      i_chip_core.u_core.u_alpha.u0lo:
+        location: [520, 700]
         orientation: N
-      i_chip_core.sram_1:
-        location: [970, 500]
-        orientation: E
+      i_chip_core.u_core.u_alpha.u0hi:
+        location: [520, 1500]
+        orientation: N
+      i_chip_core.u_core.u_alpha.u1lo:
+        location: [520, 2300]
+        orientation: N
+      i_chip_core.u_core.u_alpha.u1hi:
+        location: [520, 3100]
+        orientation: N
 
 # This is an alternative method compared to
 # specifying the power connections in the RTL
 PDN_MACRO_CONNECTIONS:
-- "i_chip_core.sram_0 VDD VSS VDD VSS"
-- "i_chip_core.sram_1 VDD VSS VDD VSS"
+- "i_chip_core.u_core.u_alpha.u0lo VDD VSS VDD VSS"
+- "i_chip_core.u_core.u_alpha.u0hi VDD VSS VDD VSS"
+- "i_chip_core.u_core.u_alpha.u1lo VDD VSS VDD VSS"
+- "i_chip_core.u_core.u_alpha.u1hi VDD VSS VDD VSS"

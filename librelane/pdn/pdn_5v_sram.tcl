@@ -1,23 +1,35 @@
-# SRAM macros
+# SRAM macros — 4x gf180mcu_fd_ip_sram__sram512x8m8wm1 forming
+# u_core.u_alpha (alpha_sram_1024x16, the 600-entry alpha table).
+# All four are orientation N (stacked vertically in the 0p5x1 core), so a single
+# macro PDN grid covers them.
+#
+# NOTE: the Metal4 edge-stripe offsets/pitch/number below are carried over from
+# the template's single-SRAM example and MUST be re-tuned to the actual macro
+# power-pin geometry + final placement on Orca (check_power_grid must pass for
+# every VDD/VSS net after PnR).
 
 define_pdn_grid \
     -macro \
-    -instances i_chip_core.sram_0 \
-    -name sram_macros_NS \
+    -instances "i_chip_core.u_core.u_alpha.u0lo \
+                i_chip_core.u_core.u_alpha.u0hi \
+                i_chip_core.u_core.u_alpha.u1lo \
+                i_chip_core.u_core.u_alpha.u1hi" \
+    -name sram_macros \
     -starts_with POWER \
     -halo "$::env(PDN_HORIZONTAL_HALO) $::env(PDN_VERTICAL_HALO)"
 
 add_pdn_connect \
-    -grid sram_macros_NS \
+    -grid sram_macros \
     -layers "$::env(PDN_VERTICAL_LAYER) $::env(PDN_HORIZONTAL_LAYER)"
 
 add_pdn_connect \
-    -grid sram_macros_NS \
+    -grid sram_macros \
     -layers "$::env(PDN_VERTICAL_LAYER) Metal3"
 
-# Add stripes on W/E edges of SRAM
+# Stripes over the SRAM rows to bind macro power pins into the grid.
+# (Re-tune -offset/-pitch/-number_of_straps to the sram512x8 power-pin pitch.)
 add_pdn_stripe \
-    -grid sram_macros_NS \
+    -grid sram_macros \
     -layer Metal4 \
     -width 2.36 \
     -offset 1.18 \
@@ -26,10 +38,9 @@ add_pdn_stripe \
     -starts_with GROUND \
     -number_of_straps 2
 
-# Since the above stripes block the top level PDN at Metal4, add some more stripes
-# to improve the PDN's integrity and ensure a better connection for the macro.
+# Extra Metal4 stripes to restore top-level PDN integrity where the above block it.
 add_pdn_stripe \
-    -grid sram_macros_NS \
+    -grid sram_macros \
     -layer Metal4 \
     -width 4.00 \
     -offset 65.93 \
@@ -37,41 +48,3 @@ add_pdn_stripe \
     -pitch 50 \
     -starts_with GROUND \
     -number_of_straps 7
-
-define_pdn_grid \
-    -macro \
-    -instances i_chip_core.sram_1 \
-    -name sram_macros_WE \
-    -starts_with POWER \
-    -halo "$::env(PDN_HORIZONTAL_HALO) $::env(PDN_VERTICAL_HALO)"
-
-add_pdn_connect \
-    -grid sram_macros_WE \
-    -layers "$::env(PDN_VERTICAL_LAYER) $::env(PDN_HORIZONTAL_LAYER)"
-
-add_pdn_connect \
-    -grid sram_macros_WE \
-    -layers "$::env(PDN_VERTICAL_LAYER) Metal3"
-
-# Add stripes on W/E edges of SRAM
-add_pdn_stripe \
-    -grid sram_macros_WE \
-    -layer Metal4 \
-    -width 2.36 \
-    -offset 1.18 \
-    -spacing 0.28 \
-    -pitch 479.88 \
-    -starts_with GROUND \
-    -number_of_straps 2
-
-# Since the above stripes block the top level PDN at Metal4, add some more stripes
-# to improve the PDN's integrity and ensure a better connection for the macro.
-add_pdn_stripe \
-    -grid sram_macros_WE \
-    -layer Metal4 \
-    -width 4.00 \
-    -offset 46.48 \
-    -spacing 0.28 \
-    -pitch 48.48 \
-    -starts_with GROUND \
-    -number_of_straps 9
