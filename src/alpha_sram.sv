@@ -59,6 +59,40 @@ module alpha_sram_1024x16 (
     assign rdata = bank_r ? {q1hi, q1lo} : {q0hi, q0lo};
 endmodule
 
+
+// feature_sram_512x16 — on-chip feature bank (FEATURE_DIM=256 used of 512 depth).
+// Restores the intended SRAM implementation of feature_bank (the IHP/m5 core had
+// it forced to flip-flops via ram_style="registers", which created the 256:1 read
+// mux + ~1030-fanout feat_rd_addr broadcast + 4096 loads on the clock that jammed
+// routing). Single bank, 2 byte lanes = 2x gf180mcu_fd_ip_sram__sram512x8m8wm1.
+// Single-port, 1-cycle registered read (matches the existing feat_rd_data timing).
+module feature_sram_512x16 (
+`ifdef USE_POWER_PINS
+    inout  wire        VDD,
+    inout  wire        VSS,
+`endif
+    input  wire        clk,
+    input  wire        ce,        // access enable (active high)
+    input  wire        we,        // write enable (active high)
+    input  wire [8:0]  addr,
+    input  wire [15:0] wdata,
+    output wire [15:0] rdata
+);
+    wire       cen  = ~ce;                  // active-low chip enable
+    wire       gwen = ~we;                  // active-low global write enable
+    wire [7:0] wen  = we ? 8'h00 : 8'hFF;   // active-low per-bit write
+    wire [7:0] qlo, qhi;
+
+    gf180mcu_fd_ip_sram__sram512x8m8wm1 ulo (
+    `ifdef USE_POWER_PINS .VDD(VDD), .VSS(VSS), `endif
+        .CLK(clk), .CEN(cen), .GWEN(gwen), .WEN(wen), .A(addr), .D(wdata[7:0]),  .Q(qlo));
+    gf180mcu_fd_ip_sram__sram512x8m8wm1 uhi (
+    `ifdef USE_POWER_PINS .VDD(VDD), .VSS(VSS), `endif
+        .CLK(clk), .CEN(cen), .GWEN(gwen), .WEN(wen), .A(addr), .D(wdata[15:8]), .Q(qhi));
+
+    assign rdata = {qhi, qlo};   // Q is registered inside the macro (1-cycle)
+endmodule
+
 `ifdef ALPHA_SRAM_BEHAV_CELL
 // Behavioral model of the foundry 512x8 single-port SRAM — functional sim / local
 // elaboration ONLY. The GF180 PDK provides the real macro on Orca; do not define

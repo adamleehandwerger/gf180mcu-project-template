@@ -166,7 +166,9 @@ module svm_compute_core #(
     logic vbatt_warn_s;
 
     // Feature bank  (holds current sample's 256-dim input vector)
-    (* ram_style = "registers" *) logic [DATA_WIDTH-1:0] feature_bank [FEATURE_DIM];
+    // feature_bank is an on-chip SRAM macro (feature_sram_512x16 u_feat, below).
+    // Caches the current beat's FEATURE_DIM features; sourced from the shared
+    // off-chip RAM. Replaces the 4096-FF register array + 256:1 read mux.
 
     // Alpha dual coefficients (signed Q6.10, one per SV) live in an on-chip SRAM
     // MACRO instance (alpha_sram_1024x16 = 4x gf180mcu_fd_ip_sram__sram512x8m8wm1),
@@ -424,10 +426,7 @@ module svm_compute_core #(
         end
     end
 
-    always_ff @(posedge clk) begin
-        if (feat_wr_en_r)
-            feature_bank[feat_wr_addr_r[7:0]] <= ram_rdata;
-    end
+    // feature_bank write is handled by the feature SRAM (u_feat) below.
 
     // =========================================================================
     // Feature bank — read path  (COMPUTE_DIST)
@@ -449,11 +448,28 @@ module svm_compute_core #(
         end
     end
 
-    always_ff @(posedge clk or negedge rst_n) begin
-        if (!rst_n) feat_rd_data <= '0;
-        else if (feat_rd_en && ram_beat)
-            feat_rd_data <= feature_bank[feat_rd_addr[7:0]];
-    end
+    // Feature bank SRAM (single-port): write during LOAD_INPUT (feat_wr_en_r),
+    // registered read during COMPUTE_DIST paced by ram_beat — disjoint phases, so
+    // one shared port. Behavioral read latency is 1 cycle = matches the old register
+    // read (testbenches stay valid); the macro's ~45ns physical access (> 40ns clk)
+    // is covered by the RAM_LATENCY(=3) pacing — enforce with a multicycle path /
+    // slower clock at harden.
+    wire       feat_sram_ce = feat_wr_en_r || (feat_rd_en && ram_beat);
+    wire       feat_sram_we = feat_wr_en_r;
+    wire [8:0] feat_sram_a  = feat_wr_en_r ? {1'b0, feat_wr_addr_r[7:0]}
+                                           : {1'b0, feat_rd_addr[7:0]};
+    feature_sram_512x16 u_feat (
+    `ifdef USE_POWER_PINS
+        .VDD  (VDD),
+        .VSS  (VSS),
+    `endif
+        .clk  (clk),
+        .ce   (feat_sram_ce),
+        .we   (feat_sram_we),
+        .addr (feat_sram_a),
+        .wdata(ram_rdata),
+        .rdata(feat_rd_data)
+    );
 
     // =========================================================================
     // SV row index  (cumulative sum of sv_count_reg for the current class)

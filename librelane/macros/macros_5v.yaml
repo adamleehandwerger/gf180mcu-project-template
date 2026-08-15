@@ -101,16 +101,26 @@ MACROS:
       # verify against the sram512x8 LEF footprint + macro-placement halo/DRC on
       # Orca and adjust (rows must clear the pad ring, logo, and each other).
       i_chip_core.u_core.u_alpha.u0lo:
-        location: [520, 700]
+        location: [500, 700]
         orientation: N
       i_chip_core.u_core.u_alpha.u0hi:
-        location: [520, 1500]
+        location: [980, 700]
         orientation: N
       i_chip_core.u_core.u_alpha.u1lo:
-        location: [520, 2300]
+        location: [500, 1250]
         orientation: N
       i_chip_core.u_core.u_alpha.u1hi:
-        location: [520, 3100]
+        location: [980, 1250]
+        orientation: N
+      # 2x 512x8 macros compose feature_sram_512x16 inside u_core.u_feat
+      # (current-feature bank: 1 bank x 2 byte lanes). Row 3 above the alpha 2x2,
+      # same X columns (500/980); Y=1800 keeps the ~65um inter-row gap. Also in
+      # pdn/pdn_5v_sram.tcl. Row spans 1800..2284.88um, clears core top (4680).
+      i_chip_core.u_core.u_feat.ulo:
+        location: [500, 1800]
+        orientation: N
+      i_chip_core.u_core.u_feat.uhi:
+        location: [980, 1800]
         orientation: N
 
 # This is an alternative method compared to
@@ -120,3 +130,5 @@ PDN_MACRO_CONNECTIONS:
 - "i_chip_core.u_core.u_alpha.u0hi VDD VSS VDD VSS"
 - "i_chip_core.u_core.u_alpha.u1lo VDD VSS VDD VSS"
 - "i_chip_core.u_core.u_alpha.u1hi VDD VSS VDD VSS"
+- "i_chip_core.u_core.u_feat.ulo VDD VSS VDD VSS"
+- "i_chip_core.u_core.u_feat.uhi VDD VSS VDD VSS"
