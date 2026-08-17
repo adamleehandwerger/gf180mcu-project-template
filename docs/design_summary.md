@@ -113,12 +113,19 @@ Q6.10.
 | sklearn binary OVR (float) | **98.67%** (296/300) | 600 [120×5] |
 | ASIC binary OVR (Q6.10, cosim) | **98.67%** (296/300, 0 quant flips) | 600 [120×5] |
 
-Per-class (Q6.10): N 98.3% · PVC 100% · AFib 100% · VT 96.7% · SVT 98.3%.
-600-SV uniform `[120×5]` is the accuracy optimum (Appendix A).
+Per-class recall (final RTL cosim): Normal 100% · PVC 100% · AFib 100% · VT 95.0% (57/60) ·
+SVT 98.3% (59/60); all 4 errors are VT/SVT→PVC. 600-SV uniform `[120×5]` is the accuracy optimum.
 
-**RTL functional check (this repo):** the SVM datapath was re-verified with regenerated real
-MIT-BIH data via `gen_tb_data.py` + iverilog (5/5 test beats correct, kernel MAE < 0.005 Q6.10).
-Re-simulation of the modified unified core (alpha-SRAM swap, NUM_SV=600) is **pending** before tapeout.
+**Full-dataset RTL cosim (DONE 2026-08-16):** the entire 300-sample PhysioNet test set was
+streamed through the actual signed-off `compute_core` RTL (native Verilog TB, `m7/cosim/`):
+**98.67% (296/300)**, and the RTL matched the Q6.10 reference model on **300/300 samples**
+(bit-exact, 0 flips). 24/24 RTL testbenches also pass. See `COSIM_RESULTS.md` +
+`confusion_matrix_cosim.png`.
+
+**Physical sign-off (job 127101):** DRC 0, LVS 0, antenna 0, hold +0.26 ns. Setup closes 25 MHz
+at typical (`tt_025C_5v00` +14 ns) and fast (`ff` +20 ns) corners; the worst-case slow corner
+(`ss_125C_4v50`) is −5.07 ns — a documented limitation of the slot's 1:4 aspect ratio (long
+wire-dominated nets; density can't rise without routing congestion). GDS built from committed RTL.
 
 ---
 
