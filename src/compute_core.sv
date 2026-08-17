@@ -205,6 +205,8 @@ module svm_compute_core #(
     // the read (sv_base). Alpha loading precedes classification, so no collision.
     logic signed [DATA_WIDTH-1:0] alpha_rd;
     logic        [DATA_WIDTH-1:0] alpha_rd_w;
+    // NUM_SV = 600 (the accuracy optimum): alpha needs a 1024-deep store = 2 banks
+    // (addr[9] selects) x 2 byte lanes = 4 SRAM macros (alpha_sram_1024x16).
     logic [9:0]                   alpha_a;
     assign alpha_a  = alpha_write_en ? alpha_addr : sv_base[9:0];
     assign alpha_rd = $signed(alpha_rd_w);
@@ -225,6 +227,12 @@ module svm_compute_core #(
     logic signed [32:0] alpha_k_full;
     assign alpha_k_full = $signed(alpha_rd) * $signed({1'b0, kernel_out});
 
+    // Pipeline register for the alpha×kernel product (Q6.10). Splits the
+    // slow "SRAM-Q -> multiply -> wide accumulate" path into two cycles: the
+    // multiply lands here in OUTPUT_RESULT, the accumulate reads it in OUTPUT_ACC.
+    // (Closes the -8.5ns setup path that would not meet 25MHz at ss_125C_4v50.)
+    logic signed [32-FRAC_BITS:0] alpha_k_r;
+
     // FSM
     typedef enum logic [2:0] {
         IDLE,
@@ -232,6 +240,7 @@ module svm_compute_core #(
         COMPUTE_DIST,
         COMPUTE_KERNEL,
         OUTPUT_RESULT,
+        OUTPUT_ACC,
         WRITE_CLASS,
         ERROR_STATE
     } state_t;
@@ -347,10 +356,11 @@ module svm_compute_core #(
             COMPUTE_DIST:   if (dist_done)  next_state = COMPUTE_KERNEL;
             COMPUTE_KERNEL: if (horner_done) next_state = OUTPUT_RESULT;
             OUTPUT_RESULT: begin
-                if (kernel_ready && kernel_valid) begin
-                    if (last_sv && last_class) next_state = WRITE_CLASS;
-                    else                       next_state = COMPUTE_DIST;
-                end
+                if (kernel_ready && kernel_valid) next_state = OUTPUT_ACC;
+            end
+            OUTPUT_ACC: begin
+                if (last_sv && last_class) next_state = WRITE_CLASS;
+                else                       next_state = COMPUTE_DIST;
             end
             WRITE_CLASS: begin
                 if (last_heartbeat) next_state = IDLE;
@@ -527,17 +537,15 @@ module svm_compute_core #(
                     sv_counter    <= '0;
                     class_counter <= '0;
                 end
-                OUTPUT_RESULT: begin
-                    if (kernel_ready && kernel_valid) begin
-                        if (last_sv && last_class) begin
-                            sv_counter    <= '0;
-                            class_counter <= '0;
-                        end else if (last_sv) begin
-                            sv_counter    <= '0;
-                            class_counter <= class_counter + 1;
-                        end else begin
-                            sv_counter    <= sv_counter + 1;
-                        end
+                OUTPUT_ACC: begin
+                    if (last_sv && last_class) begin
+                        sv_counter    <= '0;
+                        class_counter <= '0;
+                    end else if (last_sv) begin
+                        sv_counter    <= '0;
+                        class_counter <= class_counter + 1;
+                    end else begin
+                        sv_counter    <= sv_counter + 1;
                     end
                 end
                 WRITE_CLASS: begin
@@ -564,6 +572,7 @@ module svm_compute_core #(
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             for (int i = 0; i < 5; i++) class_score_acc[i] <= '0;
+            alpha_k_r <= '0;
         end else begin
             case (state)
                 IDLE: begin
@@ -577,10 +586,11 @@ module svm_compute_core #(
                 end
                 OUTPUT_RESULT: begin
                     if (kernel_valid && kernel_ready)
-                        class_score_acc[class_counter] <=
-                            $signed(class_score_acc[class_counter])
-                            + $signed(alpha_k_full[32:FRAC_BITS]);
+                        alpha_k_r <= alpha_k_full[32:FRAC_BITS];   // stage 1: register product
                 end
+                OUTPUT_ACC:                                        // stage 2: accumulate
+                    class_score_acc[class_counter] <=
+                        $signed(class_score_acc[class_counter]) + $signed(alpha_k_r);
                 WRITE_CLASS: begin
                     class_score_acc[0] <= {{16{bias_int[0][15]}}, bias_int[0]};
                     class_score_acc[1] <= {{16{bias_int[1][15]}}, bias_int[1]};

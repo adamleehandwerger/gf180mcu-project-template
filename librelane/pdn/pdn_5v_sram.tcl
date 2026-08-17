@@ -1,7 +1,7 @@
 # SRAM macros — 6x gf180mcu_fd_ip_sram__sram512x8m8wm1 forming
-# u_core.u_alpha (alpha_sram_1024x16, alpha table) + u_core.u_feat
-# (feature_sram_512x16, the current-feature bank).
-# All four are orientation N (stacked vertically in the 0p5x1 core), so a single
+# u_core.u_alpha (alpha_sram_1024x16, 600-entry alpha table = 4 macros) +
+# u_core.u_feat (feature_sram_512x16, current-feature bank = 2 macros).
+# All six are orientation N (stacked vertically in the 0p5x1 core), so a single
 # macro PDN grid covers them.
 #
 # NOTE: the Metal4 edge-stripe offsets/pitch/number below are carried over from

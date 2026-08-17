@@ -16,12 +16,19 @@ predicted class (Normal, PVC, AFib, VT, SVT).
 |-----------|-------|
 | Technology | GF180MCU 180 nm, 5 V flow (`gf180mcu_fd_sc_mcu7t5v0`, `gf180mcu_fd_io`) |
 | Die / core | 1936 × 5122 µm die · 1052 × 4238 µm core (slot `0p5x1`) |
-| Clock | 25 MHz (40 ns period) on the dedicated `clk` pad |
+| Clock | 25 MHz (40 ns period) on the dedicated `clk` pad — see note ‡ |
 | Number format | **Q6.10** fixed-point (16-bit; 1024 = 1.000) |
-| Support vectors | up to **600** (120 per class nominal) |
+| Support vectors | **600** (120 per class) |
 | Feature dimension | 256 |
 | Classes | 5 |
 | Host interface | **SPI slave** (mode 0, MSB-first) |
+| **Verified accuracy** | **98.67 % (296/300)** — full-dataset RTL cosim on the PhysioNet test set |
+
+‡ **Clock note:** timing closes at 25 MHz at the typical (`tt_025C_5v00`, +14 ns) and fast
+corners with large margin. At the worst-case slow corner (`ss_125C_4v50` — slow silicon, 125 °C,
+4.5 V) setup is −5.07 ns; for guaranteed operation at that extreme corner, derate to ~20 MHz.
+DRC/LVS/antenna are clean and hold passes at all corners. For a cardiac classifier (~1–3 beats/s)
+either speed is far more than sufficient.
 
 The chip holds three kinds of data. Two are **field-programmable** (loaded after every
 power-up); one is **fixed in silicon**:

@@ -4,8 +4,8 @@
 // alpha_sram_1024x16 — on-chip alpha coefficient store for svm_compute_core.
 //
 // Replaces the old NUM_SV x 16 flip-flop register file (which made SV count an
-// on-chip area cost and forced the IHP tapeout down from 600 to 500 SVs). Built
-// from 4x gf180mcu_fd_ip_sram__sram512x8m8wm1 foundry macros:
+// on-chip area cost). NUM_SV = 600 (the accuracy optimum) needs a 1024-deep store,
+// built from 4x gf180mcu_fd_ip_sram__sram512x8m8wm1 foundry macros:
 //   2 banks deep (addr[9] selects) x 2 byte lanes ([7:0], [15:8]) = 1024 x 16.
 //
 // Single-port, synchronous, 1-cycle read latency. Controls are ACTIVE-LOW

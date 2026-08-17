@@ -94,12 +94,13 @@ MACROS:
       "*_ss_125C_4v50":
         - pdk_dir::libs.ref/gf180mcu_fd_ip_sram/lib/gf180mcu_fd_ip_sram__sram512x8m8wm1__ss_125C_4v50.lib
     instances:
-      # 4x 512x8 macros compose alpha_sram_1024x16 inside u_core.u_alpha
-      # (600-entry alpha table: 2 banks deep x 2 byte lanes). Also referenced in
-      # pdn/pdn_5v_sram.tcl. Stacked vertically in the tall 0p5x1 core
-      # (X 442..1494, Y 442..4680). NOTE: these coordinates are a STARTING POINT —
-      # verify against the sram512x8 LEF footprint + macro-placement halo/DRC on
-      # Orca and adjust (rows must clear the pad ring, logo, and each other).
+      # 6 SRAM macros total (NUM_SV=600, the accuracy optimum):
+      #   rows 1-2 = alpha_sram_1024x16 (u_alpha): 2 banks x 2 byte lanes =
+      #              u0lo/u0hi (bank 0) + u1lo/u1hi (bank 1) as a 2x2 block
+      #   row 3    = feature_sram_512x16 (u_feat): 1 bank x 2 byte lanes = ulo/uhi
+      # 2-wide x 3-tall stack at the core bottom. Cols X=500/980 (macro w=431.86,
+      # ~48um gap); rows Y=700/1250/1800 (macro h=484.88, ~65um gap). Core
+      # X442..1494, Y442..4680. Also referenced in pdn/pdn_5v_sram.tcl.
       i_chip_core.u_core.u_alpha.u0lo:
         location: [500, 700]
         orientation: N
@@ -112,10 +113,6 @@ MACROS:
       i_chip_core.u_core.u_alpha.u1hi:
         location: [980, 1250]
         orientation: N
-      # 2x 512x8 macros compose feature_sram_512x16 inside u_core.u_feat
-      # (current-feature bank: 1 bank x 2 byte lanes). Row 3 above the alpha 2x2,
-      # same X columns (500/980); Y=1800 keeps the ~65um inter-row gap. Also in
-      # pdn/pdn_5v_sram.tcl. Row spans 1800..2284.88um, clears core top (4680).
       i_chip_core.u_core.u_feat.ulo:
         location: [500, 1800]
         orientation: N
