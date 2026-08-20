@@ -140,7 +140,7 @@ wire-dominated nets; density can't rise without routing congestion). GDS built f
 | Alpha store | `alpha_table` = registers (~9.6k FF) | **on-chip SRAM macro (~1024×16)** |
 | Density/fill | 5 unresolved M2/M3 violations | avoided (SRAM macro removes FF bulk) |
 | Interface | SPI | SPI (same) |
-| Accuracy (Q6.10 target) | 98.67% (design) / 500-SV silicon | **98.67% (600-SV optimum)** |
+| Accuracy (Q6.10) | **98.33%** (500-SV silicon [95,95,95,120,95]); 98.67% design target | **98.67%** (600-SV optimum, RTL cosim 296/300) |
 
 ---
 
