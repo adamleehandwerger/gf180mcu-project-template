@@ -6,7 +6,8 @@
 **Repo:** [adamleehandwerger/gf180mcu-project-template](https://github.com/adamleehandwerger/gf180mcu-project-template) (fork of `wafer-space/gf180mcu-project-template`)
 **Architecture:** SPI slave + unified SVM core, wrapped in the wafer.space fixed pad frame (`chip_top` → `chip_core`)
 **RTL:** `src/compute_core.sv` (unified core) + `src/chip_core.sv` (SPI bridge) — NUM_SV=600, SV_ALLOC=[120,120,120,120,120], **alpha store = on-chip SRAM macro** (was register file)
-**Status:** RTL integrated + elaborates (yosys); harden pending on Orca
+**Status:** **SIGNED OFF** (job 127101) — DRC/LVS/antenna clean, hold met all corners, 25 MHz at
+typical/fast corners; full-dataset RTL cosim **98.67%**. See "Orca Harden" below.
 
 ---
 
@@ -56,7 +57,7 @@ macro do not close on `0p5x1`.)*
 
 ## Component Summary
 
-### svm_compute_core (unified core, GF180MCU — harden pending)
+### svm_compute_core (unified core, GF180MCU — signed off)
 
 | Metric | Value |
 |--------|-------|
@@ -68,7 +69,7 @@ macro do not close on `0p5x1`.)*
 | Off-chip RAM | unified read bus `ram_addr[18:0]`/`ram_rdata[15:0]`/`ram_ren` (SV matrix rows 0..599, input rows 600..) |
 | Result | `class_out[2:0]` + `sample_rdy` per beat, `done` at batch end |
 | RAM_LATENCY | 3 |
-| Timing / power / DRC | TBD (Orca harden) |
+| Timing / DRC / LVS | 25 MHz (typ +14 ns; worst slow corner −5.07 ns); DRC 0 / LVS 0 / antenna 0; hold +0.26 ns |
 
 ### chip_core (SPI bridge + pad map — `src/chip_core.sv`)
 
@@ -161,20 +162,33 @@ exactly 256 features, 5 classes, Q6.10 range. **Behavior change vs m6:** the alp
 
 ---
 
-## Orca Harden (pending)
+## Orca Harden — complete (signed off, job 127101, `RUN_2026-08-16_12-42-54`)
+
+`nix` is not usable on Orca, and `make` is not in the SIF, so the flow runs `ciel` + `librelane`
+directly inside the LibreLane 3.1.0.dev2 Apptainer image (SLURM, `long` partition — see `gf180_harden.sh`):
 
 ```bash
-# In the fork, on Orca (nix + wafer.space gf180 PDK)
-make clone-pdk                 # wafer.space gf180mcu PDK fork
-nix-shell                      # pinned LibreLane (leo/gf180mcu)
-SLOT=0p5x1 make librelane      # synth → PnR → GDS for chip_top
+# Inside librelane_dev.sif on Orca:
+ciel enable f6eeac7d... --pdk-family gf180mcuD --include-libraries all
+librelane librelane/slots/slot_0p5x1.yaml librelane/macros/macros_5v.yaml librelane/config.yaml \
+    --pdk gf180mcuD --manual-pdk --scl gf180mcu_fd_sc_mcu7t5v0 --pad gf180mcu_fd_io \
+    --save-views-to final
 ```
 
-Remaining work before submission:
-1. Instantiate the concrete GF180 SRAM macro for `alpha_mem` (currently macro-ready RTL).
-2. Re-simulate the unified core (alpha-SRAM read latency, NUM_SV=600) — cocotb + iverilog.
-3. Close timing/DRC/density on `0p5x1`; fall back to `1x1` slot if needed.
-4. Post-layout power (GF180 Liberty `nom_tt` corner).
+Sign-off outcome (all items closed):
+1. ✅ **SRAM macros instantiated** — 6× `gf180mcu_fd_ip_sram__sram512x8m8wm1` (alpha 4 + feature 2),
+   the only 5 V-characterized SRAM in `gf180mcuD`. The register `feature_bank`→SRAM swap also fixed
+   the detailed-routing congestion (39 min vs the earlier 17–22 h stall).
+2. ✅ **Re-simulated** — 24/24 RTL testbenches (L1/L2/L3 + SPI) + the full 300-sample RTL cosim at
+   **98.67% (296/300)**, matching the Q6.10 reference model bit-for-bit (300/300).
+3. ✅ **Physical closure on `0p5x1`** (no `1x1` fallback needed): DRC 0, LVS 0, antenna 0, hold
+   +0.26 ns all corners. Setup closes 25 MHz at typical (`tt_025C_5v00` +14 ns) and fast (+20 ns);
+   the worst slow corner (`ss_125C_4v50`) is −5.07 ns — a documented limitation of the slot's 1:4
+   aspect ratio (long wire-dominated nets; density can't rise without routing congestion). To
+   pipeline-close 25 MHz worst-case would need a 2nd datapath stage; derate to ~20 MHz for that corner.
+4. Post-layout power (GF180 Liberty corners) — not required for the shuttle submission; deferred.
+
+GDS built from the committed RTL. Timing details in `../../Indently/project/m7/tb_results/testbench_analysis.md`.
 
 ---
 
